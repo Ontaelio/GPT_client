@@ -1,5 +1,45 @@
 {% extends "layout.html" %}
 
 {% block content %}
-Hello this is a test message, and it is {{ content }}.
+
+
+    <form method="GET" action="/web_request/" id="chat">
+    <div class="content">
+        <div class="ui form">
+            <div class="field">
+                <label for="context">Context</label>
+                    <input id="context" name="context" type="text" placeholder="You are a helpful assistant on..." size=10 value={{ context }}>
+            </div>
+        </div>
+
+        <div class="ui form">
+            <div class="field">
+                <label for="temperature">Temperature</label>
+                    <input id="temperature" name="temperature" type="text" placeholder="0.7" size=10 value={{ temperature or "0.7" }}>
+            </div>
+        </div>
+
+        <div class="ui form">
+
+            <div class="field">
+              <label>Question</label>
+                <label for="question"></label>
+                <textarea id="question" name="question" value={{question}}></textarea>
+            </div>
+          </div>
+    </div>
+
+    <button class="ui button primary">
+      Respond!
+    </button>
+    </form>
+
+
+
+    <br>
+
+    <div style="white-space: pre-wrap;">
+        {{ content }}
+    </div>
+
 {% endblock %}
