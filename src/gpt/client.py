@@ -22,13 +22,11 @@ async def gpt_query(message, context='You are a helpful assistant.', prev_messag
     #         Однако использование личных устройств в работе также несет риски для информационной безопасности. Недостаточная защита подобных инструментов может привести к утечке конфиденциальной информации. Необходимо принимать меры по обеспечению безопасности на всех уровнях, начиная от установки паролей и шифрования данных, заканчивая обучением сотрудников правилам безопасного использования личных устройств в работе"""
     #     }
     # ])
-    if not prev_messages:
-        all_messages = []
-    else:
-        all_messages = prev_messages.copy()
-    all_messages.append(message)
-    for m in all_messages:
-        messages.append({"role": "user", "content": m})
+
+    if prev_messages:
+        messages.extend(prev_messages)
+
+    messages.append(message)
 
     print(messages)
 

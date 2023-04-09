@@ -1,43 +1,63 @@
+from fastapi import HTTPException, Body
+from fastapi.encoders import jsonable_encoder
 from fastapi.routing import APIRoute
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import DuplicateKeyError
+from starlette import status
 from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+from src.db import contexts
+from src.mongo.models import Context
 
 
-async def get_contexts_list(request: Request) -> list:
-    mongo_client: AsyncIOMotorClient = request.app.state.mongo_client["gpt_api"]
-    cursor = await mongo_client.contexts.find_all()
+async def get_contexts_full() -> list:
+    cursor = contexts.find()
     res = []
-    for document in cursor:
+    for document in await cursor.to_list(length=None):
         document["_id"] = str(document["_id"])
         res.append(document)
     return res
 
 
-async def get_context(request: Request) -> dict:
-    ...
+async def get_contexts() -> list:
+    cursor = contexts.find({}, {"name": 1, "description": 1, "_id": 0})
+    return await cursor.to_list(length=None)
 
 
-async def post_context(request: Request) -> dict:
-    ...
+async def get_context(context: str) -> dict:
+    if res := await contexts.find_one({"name": context}, {"_id": 0}):
+        return res
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f'Context {context} not found',
+    )
 
 
-async def create_record(request: Request) -> dict:
-    mongo_client: AsyncIOMotorClient = request.app.state.mongo_client["test_database"]
-    await mongo_client.records.insert_one({"sample": "record"})
-    return {"Success": True}
+async def post_context(context: Context = Body(...)) -> JSONResponse:
+    context = jsonable_encoder(context)
+    try:
+        new_context = await contexts.insert_one(context)
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='Error: Duplicate context name',
+        )
+    inserted = await contexts.find_one({"_id": new_context.inserted_id}, {"_id": 0})
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=inserted)
 
 
-async def get_records(request: Request) -> list:
-    mongo_client: AsyncIOMotorClient = request.app.state.mongo_client["test_database"]
-    cursor = mongo_client.records.find({})
-    res = []
-    for document in await cursor.to_list(length=100):
-        document["_id"] = str(document["_id"])
-        res.append(document)
-    return res
+async def update_context(context: Context = Body(...)) -> JSONResponse:
+    context = jsonable_encoder(context)
+    update_result = await contexts.update_one({"name": context["name"]}, {"$set": context}, upsert=True)
+    updated = await contexts.find_one({"name": context["name"]}, {"_id": 0})
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=updated)
 
 
 api_routes = [
-    APIRoute(path="/create_record", endpoint=create_record, methods=["POST"]),
-    APIRoute(path="/get_records", endpoint=get_records, methods=["GET"]),
+    APIRoute(path="/contexts_full", endpoint=get_contexts_full, methods=["GET"]),
+    APIRoute(path="/contexts", endpoint=get_contexts, methods=["GET"]),
+    APIRoute(path="/context", endpoint=get_context, methods=["GET"]),
+    APIRoute(path="/new_context", endpoint=post_context, methods=["POST"]),
+    APIRoute(path="/update_context", endpoint=update_context, methods=["PUT"]),
 ]
